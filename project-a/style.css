@@ -6,11 +6,14 @@ CCLaboratories Biodiversity Atlas
 */
 
 body {
-    background-color: rgb(8, 1, 1);
-    color: rgb(209, 252, 255);
+    background-color: rgb(5, 14, 20);
+    color: rgb(195, 225, 228);
+
     font-family: 'Courier New', Courier, monospace;
-    font-size: 1em;
-    line-height: 1.5em;
+    font-size: 16px;
+    line-height: 1.8;
+
+    margin: 0;
 }
 
 /* title */
@@ -19,81 +22,141 @@ body {
 }
 
 .headline {
+    color: rgb(220, 255, 250);
+
     font-size: 3em;
-    font-family: Georgia, 'Times New Roman', Times, serif;
-    font-weight: 600;
-    margin-top: 80px;
-    margin-bottom: 60px;
+    font-family: 'Courier New', Courier, monospace;
+    font-weight: normal;
+    letter-spacing: 3px;
+
+    margin-top: 70px;
+    margin-bottom: 45px;
 }
 
 /* main content */
 #main-wrapper {
     width: 800px;
+    max-width: calc(100% - 40px);
     position: relative;
     margin: auto;
 }
 
+#main-wrapper h2,
+#main-wrapper h3 {
+    color: rgb(145, 225, 220);
+    font-weight: normal;
+    line-height: 1.4;
+    margin-top: 32px;
+    margin-bottom: 12px;
+}
+
+#main-wrapper p {
+    margin-top: 0;
+    margin-bottom: 20px;
+}
+
 .black {
-    color: black;
+    color: rgb(235, 250, 250);
 }
 
 .red {
-    color: DeepPink;
+    color: rgb(240, 160, 185);
 }
 
 .green {
-    color: LightSeaGreen;
+    color: rgb(100, 215, 205);
 }
 
 .yellow {
-    color: GoldenRod;
+    color: rgb(255, 225, 100);
 }
 
 .two-columns {
     display: flex;
+    gap: 30px;
+    margin-top: 30px;
 }
 
-.left {
-    width: 50%;
-    padding: 0px 10px 0px 0px;
-}
-
+.left,
 .right {
-    width: 50%;
-    padding: 0px 0px 0px 10px;
+    width: calc(50% - 15px);
+    padding: 0;
 }
 
+#main-wrapper a {
+    color: rgb(145, 225, 220);
+    text-decoration: underline;
+    text-underline-offset: 4px;
+}
+
+#main-wrapper a:hover {
+    color: rgb(235, 255, 250);
+}
+
+/* footer */
 #footer {
     text-align: center;
-    font-size: 0.7em;
+    color: rgb(125, 155, 165);
+
+    font-size: 0.75em;
     margin-top: 60px;
-    padding-bottom: 30px;
+    padding: 0 20px 30px;
 }
 
 /* home button */
 #home a {
     position: fixed;
-    right: 15px;
-    top: 15px;
-    padding: 5px 10px;
-    color: dimgrey;
-    border: solid grey 0.5px;
-    font-size: 0.6em;
+    right: 20px;
+    top: 20px;
+
+    padding: 7px 12px;
+    color: rgb(150, 200, 200);
+    background-color: rgb(5, 14, 20);
+
+    border: 1px solid rgb(55, 100, 105);
+    border-radius: 4px;
+
+    font-size: 0.7em;
     text-decoration: none;
 }
 
 #home a:hover {
-    background-color: black;
-    color: white;
-    font-weight: bold;
+    background-color: rgb(20, 55, 60);
+    color: rgb(225, 255, 250);
+    border-color: rgb(130, 220, 210);
 }
 
 /* p5.js sketch */
 canvas {
     display: block;
+    max-width: 100%;
+    height: auto !important;
+
+    outline: 1px solid rgb(40, 75, 80);
+    border-radius: 6px;
 }
 
 main {
     margin: auto;
     width: 800px;
+    max-width: 100%;
+}
+
+@media (max-width: 650px) {
+    .headline {
+        font-size: 2em;
+        letter-spacing: 1px;
+        margin-top: 80px;
+        margin-bottom: 30px;
+    }
+
+    .two-columns {
+        flex-direction: column;
+        gap: 0;
+    }
+
+    .left,
+    .right {
+        width: 100%;
+    }
 }
