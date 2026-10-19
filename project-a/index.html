@@ -128,9 +128,21 @@ CCLaboratories Biodiversity Atlas
 
     <script src="sketch.js" type="text/javascript"></script>
 
-    <audio controls loop>
-        <source src="assets/music.mp3" type="audio/mpeg">
-    </audio>
+    <audio id="bgMusic" src="assets/music.mp3" loop></audio>
+
+    <script>
+        const bgMusic = document.getElementById("bgMusic");
+        bgMusic.volume = 0.3;
+
+        function startMusic() {
+            bgMusic.play().then(function () {
+                document.removeEventListener("click", startMusic);
+            }).catch(function () {
+            });
+        }
+
+        document.addEventListener("click", startMusic);
+    </script>
 </body>
 
 </html>
