@@ -1,153 +1,208 @@
 /*
-Template for IMA's Creative Coding Lab 
-
-Project A: Generative Creatures
-CCLaboratories Biodiversity Atlas 
+Homebody
+Creative Coding Lab — Project A
 */
 
 body {
-    background-color: rgb(0, 0, 0);
-    color: hsl(185, 100%, 50%);
+    background-color: #070d10;
+    color: #eaf8f6;
 
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 16px;
-    line-height: 1.8;
+    font-family: ui-rounded, "SF Pro Rounded",
+        "Trebuchet MS", sans-serif;
+
+    font-size: 17px;
+    line-height: 1.85;
 
     margin: 0;
 }
 
-/* title */
 #title-wrapper {
     text-align: center;
+    padding: 0 20px;
 }
 
 .headline {
-    color: rgb(0, 255, 255);
+    font-family: "Arial Rounded MT Bold",
+        ui-rounded, "Trebuchet MS", sans-serif;
 
-    font-size: 3em;
-    font-family: 'Courier New', Courier, monospace;
-    font-weight: normal;
-    letter-spacing: 3px;
+    color: #45f5df;
+    font-size: clamp(36px, 6vw, 56px);
+    font-weight: 700;
 
-    margin-top: 70px;
-    margin-bottom: 45px;
+    letter-spacing: 1px;
+    line-height: 1.2;
+
+    margin-top: 80px;
+    margin-bottom: 50px;
 }
 
-/* main content */
 #main-wrapper {
     width: 800px;
     max-width: calc(100% - 40px);
+
     position: relative;
     margin: auto;
 }
 
 #main-wrapper h2,
 #main-wrapper h3 {
-    color: rgb(192, 253, 249);
-    font-weight: normal;
+    color: #8ce5da;
+
+    font-size: 20px;
+    font-weight: 700;
     line-height: 1.4;
+    letter-spacing: 0.2px;
+
     margin-top: 32px;
     margin-bottom: 12px;
 }
 
+#main-wrapper h2.red,
+#main-wrapper h3.red {
+    color: #ffabc6;
+}
+
+#main-wrapper h2.green,
+#main-wrapper h3.green {
+    color: #8ce5da;
+}
+
+#main-wrapper h2.yellow,
+#main-wrapper h3.yellow {
+    color: #ffe58c;
+}
+
 #main-wrapper p {
+    color: #eaf8f6;
+
     margin-top: 0;
     margin-bottom: 20px;
 }
 
+#main-wrapper ul {
+    padding-left: 22px;
+
+    margin-top: 0;
+    margin-bottom: 20px;
+}
+
+#main-wrapper li {
+    color: #eaf8f6;
+    margin-bottom: 6px;
+}
+
+#main-wrapper li::marker {
+    color: #8ce5da;
+}
+
 .black {
-    color: rgb(235, 250, 250);
+    color: #eaf8f6;
 }
 
 .red {
-    color: rgb(240, 160, 185);
+    color: #ffabc6;
 }
 
 .green {
-    color: rgb(100, 215, 205);
+    color: #8ce5da;
 }
 
 .yellow {
-    color: rgb(255, 225, 100);
+    color: #ffe58c;
 }
 
 .two-columns {
     display: flex;
     gap: 30px;
+
     margin-top: 30px;
 }
 
 .left,
 .right {
     width: calc(50% - 15px);
+    min-width: 0;
     padding: 0;
 }
 
+.one-column {
+    margin-top: 12px;
+}
+
 #main-wrapper a {
-    color: rgb(145, 225, 220);
+    color: #75ecda;
+
     text-decoration: underline;
     text-underline-offset: 4px;
 }
 
 #main-wrapper a:hover {
-    color: rgb(235, 255, 250);
+    color: #fff0a8;
 }
 
-/* footer */
 #footer {
     text-align: center;
-    color: rgb(125, 155, 165);
 
-    font-size: 0.75em;
+    font-size: 13px;
+    line-height: 1.6;
+
     margin-top: 60px;
     padding: 0 20px 30px;
 }
 
-/* home button */
+#footer,
+#footer p {
+    color: #c9e4e0;
+}
+
 #home a {
     position: fixed;
     right: 20px;
     top: 20px;
+    z-index: 10;
 
-    padding: 7px 12px;
-    color: rgb(150, 200, 200);
-    background-color: rgb(5, 14, 20);
+    padding: 8px 14px;
 
-    border: 1px solid rgb(55, 100, 105);
-    border-radius: 4px;
+    color: #eaf8f6;
+    background-color: #0b191d;
 
-    font-size: 0.7em;
+    border: 1px solid #65bdb3;
+    border-radius: 12px;
+
+    font-size: 12px;
+    font-weight: 600;
     text-decoration: none;
 }
 
 #home a:hover {
-    background-color: rgb(20, 55, 60);
-    color: rgb(225, 255, 250);
-    border-color: rgb(130, 220, 210);
-}
-
-/* p5.js sketch */
-canvas {
-    display: block;
-    max-width: 100%;
-    height: auto !important;
-
-    outline: 1px solid rgb(40, 75, 80);
-    border-radius: 6px;
+    background-color: #153332;
+    color: #45f5df;
+    border-color: #45f5df;
 }
 
 main {
-    margin: auto;
     width: 800px;
     max-width: 100%;
+
+    margin: auto;
+}
+
+canvas {
+    display: block;
+
+    max-width: 100%;
+    height: auto !important;
+
+    outline: 1px solid #315753;
+    border-radius: 8px;
 }
 
 @media (max-width: 650px) {
     .headline {
-        font-size: 2em;
-        letter-spacing: 1px;
-        margin-top: 80px;
-        margin-bottom: 30px;
+        font-size: 36px;
+
+        margin-top: 90px;
+        margin-bottom: 35px;
     }
 
     .two-columns {
@@ -158,5 +213,13 @@ main {
     .left,
     .right {
         width: 100%;
+    }
+
+    #home a {
+        right: 12px;
+        top: 12px;
+
+        padding: 7px 11px;
+        font-size: 11px;
     }
 }
