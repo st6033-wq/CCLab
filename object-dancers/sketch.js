@@ -77,7 +77,7 @@ class SallyDancer {
 
     pop();
   }
-}」
+}
 
 /*
 GOAL:
