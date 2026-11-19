@@ -1,348 +1,672 @@
-// What Stays — first prototype.
-// Opening drawings are supplied by Sally.
-// Hand tracking follows the ml5.handPose example supplied in class.
-// Green points are development feedback for checking camera alignment.
-
 let drawings = [];
-let opening;
+
+let imageNames = [
+  "ink-1",
+  "ink-2",
+  "ink-3",
+  "ink-4",
+  "fist",
+  "hand-1",
+  "hand-2",
+  "hand-3",
+  "hand-4"
+];
+
+let imageDurations = [
+  450,
+  350,
+  350,
+  500,
+  400,
+  230,
+  230,
+  300,
+  450
+];
+
+let paper;
+let imageFailed = false;
+
+// ---------- Opening ----------
+
+let scene = "waiting";
+let openingStartedAt = 0;
+let interactionStartedAt = 0;
+
+// ---------- Tracking ----------
+
 let handPose;
 let video;
+
 let hands = [];
-let tracking = false;
+let handHistory = [];
+
+let cameraOn = false;
 let cameraLoading = false;
-let assetsFailed = false;
-let companion;
-let inkHand;
-let paper;
-let playerPoints = [];
 let lastDetection = 0;
-let demo = false;
-let showVideo = false;
+
+// ---------- Ink hands ----------
+
+let playerHand;
+let companionHand;
+
+// ---------- Interface ----------
+
+function setStatus(message) {
+  document.getElementById("status").textContent = message;
+}
+
+// ---------- Loading ----------
 
 function preload() {
-  let names = [
-    "ink-1", "ink-2", "ink-3", "ink-4", "fist",
-    "hand-1", "hand-2", "hand-3", "hand-4"
-  ];
-  for (let i = 0; i < names.length; i++) {
-    drawings.push(loadImage("assets/" + names[i] + ".PNG", undefined, function () {
-      assetsFailed = true;
-      document.getElementById("status").textContent =
-        "A drawing could not load. Check the assets folder and open with Live Server.";
-    }));
+  for (let i = 0; i < imageNames.length; i++) {
+    let path = "assets/" + imageNames[i] + ".PNG";
+
+    drawings.push(
+      loadImage(
+        path,
+        undefined,
+        function () {
+          imageFailed = true;
+
+          setStatus(
+            "A drawing could not load. Check the assets folder."
+          );
+        }
+      )
+    );
   }
 }
 
-function setup() {
-  let canvas = createCanvas(834, 582.5);
-  canvas.parent("artwork");
-  opening = new Opening(drawings);
-  paper = createGraphics(width, height);
-  // Stretch only the empty top strip of the supplied paper, keeping the drawing separate.
-  paper.image(drawings[8], 0, 0, width, height, 0, 0, 1668, 110);
-  inkHand = createInkLayer(drawings[8]);
-  companion = new Companion();
-  document.getElementById("demo").onclick = function () {
-    demo = !demo;
-    playerPoints = [];
-    this.textContent = demo ? "Exit mouse trial" : "Try with mouse";
-    if (demo) { opening.started = true; opening.finished = true; }
-  };
-  document.getElementById("preview").onchange = function () { showVideo = this.checked; };
-  if (assetsFailed) return;
-  document.getElementById("status").textContent = "Begin when you are ready.";
-  document.getElementById("begin").disabled = false;
-  document.getElementById("camera").disabled = false;
+// ---------- Setup ----------
 
-  document.getElementById("begin").onclick = function () {
-    opening.start();
-    this.hidden = true;
-    document.getElementById("replay").disabled = false;
-  };
-  document.getElementById("replay").onclick = function () {
-    opening.start();
-  };
+function setup() {
+  let canvas = createCanvas(834, 583);
+  canvas.parent("artwork");
+
+  pixelDensity(1);
+
+  paper = createGraphics(width, height);
+  paper.pixelDensity(1);
+
+  // The upper strip of the original drawing contains empty paper.
+  paper.image(
+    drawings[8],
+    0,
+    0,
+    width,
+    height,
+    0,
+    0,
+    drawings[8].width,
+    100
+  );
+
+  playerHand = new InkHand(false);
+  companionHand = new InkHand(true);
+
+  document.getElementById("begin").onclick = startOpening;
+  document.getElementById("replay").onclick = startOpening;
   document.getElementById("camera").onclick = startCamera;
-  document.getElementById("stop-camera").onclick = stopCamera;
+  document.getElementById("stop").onclick = stopCamera;
+
+  if (!imageFailed) {
+    document.getElementById("begin").disabled = false;
+    document.getElementById("camera").disabled = false;
+
+    setStatus("Begin when you are ready.");
+  }
 }
+
+// ---------- Main drawing ----------
 
 function draw() {
   background(238, 231, 216);
-  if (!opening || assetsFailed) return;
-  if (opening.finished) {
-    image(paper, 0, 0);
-    updatePlayer();
-    companion.update();
-    companion.display();
-    if (playerPoints.length) drawInkHand(playerPoints);
-    updateStatus();
-  } else {
-    opening.display();
-    // Preview and status remain available while the opening plays.
-    updateStatus();
+
+  if (imageFailed) {
+    return;
   }
-  if (showVideo && video && tracking) {
+
+  if (scene === "waiting") {
+    image(drawings[0], 0, 0, width, height);
+  }
+
+  if (scene === "opening") {
+    drawOpening();
+  }
+
+  if (scene === "interaction") {
+    drawInteraction();
+  }
+
+  drawCameraPreview();
+}
+
+// ---------- Opening animation ----------
+
+function startOpening() {
+  openingStartedAt = millis();
+  scene = "opening";
+
+  playerHand.reset();
+  companionHand.reset();
+
+  handHistory = [];
+
+  document.getElementById("begin").hidden = true;
+  document.getElementById("replay").disabled = false;
+
+  setStatus("An ink hand is taking shape.");
+}
+
+function drawOpening() {
+  let elapsed = millis() - openingStartedAt;
+
+  let frameStart = 0;
+  let frameIndex = drawings.length - 1;
+
+  for (let i = 0; i < imageDurations.length; i++) {
+    let frameEnd = frameStart + imageDurations[i];
+
+    if (elapsed < frameEnd) {
+      frameIndex = i;
+      break;
+    }
+
+    frameStart = frameEnd;
+  }
+
+  image(
+    drawings[frameIndex],
+    0,
+    0,
+    width,
+    height
+  );
+
+  // Dissolve from the large ink wash into the fist.
+  let dissolveStart = 1650;
+  let dissolveEnd = 2050;
+
+  if (
+    elapsed >= dissolveStart &&
+    elapsed < dissolveEnd
+  ) {
+    image(drawings[3], 0, 0, width, height);
+
+    let opacity = map(
+      elapsed,
+      dissolveStart,
+      dissolveEnd,
+      0,
+      255
+    );
+
+    tint(255, opacity);
+
+    image(drawings[4], 0, 0, width, height);
+
+    noTint();
+  }
+
+  let totalDuration = 0;
+
+  for (let i = 0; i < imageDurations.length; i++) {
+    totalDuration += imageDurations[i];
+  }
+
+  if (elapsed >= totalDuration) {
+    scene = "interaction";
+    interactionStartedAt = millis();
+  }
+}
+
+// ---------- Interaction ----------
+
+function drawInteraction() {
+  image(paper, 0, 0);
+
+  let detected =
+    cameraOn &&
+    hands.length > 0 &&
+    millis() - lastDetection < 600;
+
+  if (!detected) {
+    playerHand.reset();
+    companionHand.reset();
+
+    // Keep the original invitation image while waiting for a hand.
+    image(drawings[8], 0, 0, width, height);
+
+    if (cameraLoading) {
+      setStatus("Loading the camera and hand model…");
+    } else if (cameraOn) {
+      setStatus(
+        "Raise one hand with your palm and fingers visible."
+      );
+    } else {
+      setStatus(
+        "Enable the camera to reach toward the ink hand."
+      );
+    }
+
+    return;
+  }
+
+  let currentPose = handHistory[handHistory.length - 1];
+
+  if (!currentPose) {
+    return;
+  }
+
+  playerHand.update(currentPose.points);
+
+  // Find a pose from approximately 350 milliseconds ago.
+  let delayedPose;
+  let targetTime = millis() - 350;
+
+  for (let i = 0; i < handHistory.length; i++) {
+    if (handHistory[i].time <= targetTime) {
+      delayedPose = handHistory[i];
+    }
+  }
+
+  if (delayedPose) {
+    companionHand.update(delayedPose.points);
+  }
+
+  // The companion is slightly offset so both hands remain visible.
+  companionHand.display(-55, -30);
+  playerHand.display(0, 0);
+
+  setStatus(
+    "Open your hand, bend a finger, or make a fist."
+  );
+}
+
+// ---------- Ink hand ----------
+
+class InkHand {
+  constructor(isCompanion) {
+    this.isCompanion = isCompanion;
+
+    this.points = [];
+
+    this.layer = createGraphics(width, height);
+    this.layer.pixelDensity(1);
+
+    this.color = isCompanion
+      ? [29, 101, 91]
+      : [62, 137, 139];
+  }
+
+  reset() {
+    this.points = [];
+  }
+
+  update(targetPoints) {
+    if (targetPoints.length !== 21) {
+      return;
+    }
+
+    if (this.points.length !== 21) {
+      this.points = [];
+
+      for (let i = 0; i < targetPoints.length; i++) {
+        this.points.push({
+          x: targetPoints[i].x,
+          y: targetPoints[i].y
+        });
+      }
+
+      return;
+    }
+
+    // Light smoothing reduces tracking jitter.
+    for (let i = 0; i < targetPoints.length; i++) {
+      this.points[i].x = lerp(
+        this.points[i].x,
+        targetPoints[i].x,
+        0.65
+      );
+
+      this.points[i].y = lerp(
+        this.points[i].y,
+        targetPoints[i].y,
+        0.65
+      );
+    }
+  }
+
+  drawSilhouette() {
+    let points = this.points;
+    let layer = this.layer;
+
+    layer.clear();
+
+    let palmWidth = dist(
+      points[5].x,
+      points[5].y,
+      points[17].x,
+      points[17].y
+    );
+
+    // Prevent fingers from becoming extremely thin in side views.
+    let palmLength = dist(
+      points[0].x,
+      points[0].y,
+      points[9].x,
+      points[9].y
+    );
+
+    let fingerWidth = max(
+      palmWidth * 0.19,
+      palmLength * 0.13
+    );
+
+    layer.noStroke();
+    layer.fill(255);
+
+    // Solid palm.
+    let palm = [0, 1, 2, 5, 9, 13, 17];
+
+    layer.beginShape();
+
+    for (let i = 0; i < palm.length; i++) {
+      let point = points[palm[i]];
+
+      layer.vertex(point.x, point.y);
+    }
+
+    layer.endShape(CLOSE);
+
+    let fingers = [
+      [1, 2, 3, 4],
+      [5, 6, 7, 8],
+      [9, 10, 11, 12],
+      [13, 14, 15, 16],
+      [17, 18, 19, 20]
+    ];
+
+    layer.stroke(255);
+    layer.strokeCap(ROUND);
+    layer.strokeJoin(ROUND);
+
+    // Rounded finger segments, all on one opaque mask.
+    for (let f = 0; f < fingers.length; f++) {
+      let ids = fingers[f];
+
+      for (let j = 0; j < ids.length - 1; j++) {
+        let start = points[ids[j]];
+        let end = points[ids[j + 1]];
+
+        let thickness = fingerWidth * (1 - j * 0.12);
+
+        if (f === 0) {
+          thickness *= 1.12;
+        }
+
+        if (f === 4) {
+          thickness *= 0.78;
+        }
+
+        layer.strokeWeight(thickness);
+
+        layer.line(
+          start.x,
+          start.y,
+          end.x,
+          end.y
+        );
+      }
+    }
+  }
+
+  display(offsetX, offsetY) {
+    if (this.points.length !== 21) {
+      return;
+    }
+
+    this.drawSilhouette();
+
+    let centerX = this.points[9].x;
+    let centerY = this.points[9].y;
+
+    let red = this.color[0];
+    let green = this.color[1];
+    let blue = this.color[2];
+
     push();
-    translate(width, 0);
-    scale(-1, 1);
-    image(video, 0, 0, 200, 150);
+
+    translate(offsetX, offsetY);
+
+    // Low-opacity, uneven halos around the silhouette.
+    // Stable noise keeps the edge from flickering randomly.
+    for (let i = 7; i >= 1; i--) {
+      let spread = 1 + i * 0.008;
+
+      let shiftX = map(
+        noise(i * 1.7),
+        0,
+        1,
+        -2,
+        2
+      );
+
+      let shiftY = map(
+        noise(i * 2.3 + 20),
+        0,
+        1,
+        -2,
+        2
+      );
+
+      push();
+
+      translate(
+        centerX + shiftX,
+        centerY + shiftY
+      );
+
+      scale(spread);
+      translate(-centerX, -centerY);
+
+      tint(red, green, blue, 5);
+
+      image(this.layer, 0, 0);
+
+      pop();
+    }
+
+    // Main transparent wash.
+    let opacity = this.isCompanion ? 72 : 42;
+
+    tint(red, green, blue, opacity);
+    image(this.layer, 0, 0);
+
+    // Fine darker edge, created from the silhouette.
+    // Draw dark shifted masks, then cover the interior with paper.
+    // A very light inner wash remains visible.
+    noTint();
+
     pop();
   }
 }
 
-function createInkLayer(source) {
-  let layer = createImage(width, height);
-  layer.copy(source, 0, 0, source.width, source.height, 0, 0, width, height);
-  layer.loadPixels();
-  // Keep dark drawn strokes and suppress the light paper.
-  for (let i = 0; i < layer.pixels.length; i += 4) {
-    let light = (layer.pixels[i] + layer.pixels[i + 1] + layer.pixels[i + 2]) / 3;
-    layer.pixels[i] = 34;
-    layer.pixels[i + 1] = 37;
-    layer.pixels[i + 2] = 31;
-    layer.pixels[i + 3] = constrain((155 - light) * 4, 0, 255);
-  }
-  layer.updatePixels();
-  return layer;
-}
-
-function updatePlayer() {
-  let target = [];
-  if (demo && mouseX >= 0 && mouseX <= width && mouseY >= 0 && mouseY <= height) {
-    // An open-hand pose for testing without a camera.
-    let pose = [[0,90],[-38,65],[-63,33],[-83,8],[-103,-9],
-      [-36,5],[-43,-40],[-46,-73],[-48,-100],
-      [0,0],[0,-51],[0,-89],[0,-120],
-      [33,8],[38,-37],[40,-70],[42,-93],
-      [60,25],[74,-8],[81,-35],[86,-57]];
-    for (let i = 0; i < pose.length; i++) target.push({x:mouseX+pose[i][0],y:mouseY+pose[i][1]});
-  } else if (tracking && hands.length && millis() - lastDetection < 650) {
-    let raw = hands[0].keypoints;
-    let vw = video.elt.videoWidth || 640;
-    let vh = video.elt.videoHeight || 480;
-    for (let i = 0; i < raw.length; i++) target.push({
-      x:width - raw[i].x * width / vw,
-      y:raw[i].y * height / vh
-    });
-  }
-  if (!target.length) { playerPoints = []; return; }
-  if (playerPoints.length !== target.length) {
-    playerPoints = target;
-  } else {
-    for (let i = 0; i < target.length; i++) {
-      playerPoints[i].x += (target[i].x - playerPoints[i].x) * 0.45;
-      playerPoints[i].y += (target[i].y - playerPoints[i].y) * 0.45;
-    }
-  }
-}
-
-function inkPath(points, weight, opacity) {
-  noFill();
-  stroke(31, 40, 34, opacity);
-  strokeWeight(weight);
-  beginShape();
-  for (let i = 0; i < points.length; i++) curveVertex(points[i].x, points[i].y);
-  endShape();
-}
-
-function drawInkHand(points) {
-  // Landmark centers are expanded into a continuous outer contour.
-  let fingers = [[1,2,3,4],[5,6,7,8],[9,10,11,12],[13,14,15,16],[17,18,19,20]];
-  let outline = [{x:points[0].x-13,y:points[0].y}];
-  for (let f = 0; f < fingers.length; f++) {
-    let ids = fingers[f];
-    for (let j = 0; j < ids.length; j++) {
-      let point = points[ids[j]];
-      let previous = points[j ? ids[j-1] : 0];
-      let dx = point.x-previous.x, dy = point.y-previous.y;
-      let length = max(1,sqrt(dx*dx+dy*dy));
-      let radius = j === 3 ? 5 : 8;
-      outline.push({x:point.x+dy/length*radius,y:point.y-dx/length*radius});
-    }
-    for (let j = ids.length-1; j >= 0; j--) {
-      let point = points[ids[j]];
-      let previous = points[j ? ids[j-1] : 0];
-      let dx=point.x-previous.x,dy=point.y-previous.y;
-      let length=max(1,sqrt(dx*dx+dy*dy));
-      let radius=j===3?5:8;
-      outline.push({x:point.x-dy/length*radius,y:point.y+dx/length*radius});
-    }
-  }
-  outline.push({x:points[0].x+13,y:points[0].y},outline[0],outline[1]);
-  inkPath(outline,8,12);
-  inkPath(outline,4,60);
-  inkPath(outline,1.7,155);
-  // A few palm creases, instead of a full joint skeleton.
-  inkPath([points[5],points[5],points[9],points[13],points[17],points[17]],1.2,90);
-  inkPath([points[1],points[1],points[5],points[0],points[0]],1.2,80);
-}
-
-class Companion {
-  constructor() {
-    this.x = 0;
-    this.y = 0;
-    this.contact = 0;
-    this.mark = 0;
-  }
-  update() {
-    let targetX=0,targetY=0;
-    if (playerPoints.length) {
-      // The supplied hand stays in its original pose and slowly follows the palm.
-      targetX=constrain(playerPoints[9].x-width*0.5,-width*0.24,width*0.24);
-      targetY=constrain(playerPoints[9].y-height*0.52,-height*0.22,height*0.22);
-    }
-    this.x+=(targetX-this.x)*0.025;
-    this.y+=(targetY-this.y)*0.025;
-    this.contact=0;
-    if (playerPoints.length) {
-      let distance=dist(playerPoints[9].x,playerPoints[9].y,width*0.5+this.x,height*0.52+this.y);
-      this.contact=constrain(1-distance/105,0,1);
-      this.mark=max(this.mark,this.contact);
-    }
-  }
-  display() {
-    image(inkHand,this.x,this.y,width,height);
-    if (playerPoints.length && this.mark>0) {
-      let point=playerPoints[9];
-      noStroke();
-      for (let i=6;i>0;i--) {
-        fill(35,140,122,3+this.contact*3);
-        ellipse(point.x,point.y,i*10,i*8);
-      }
-    }
-  }
-}
-
-function updateStatus() {
-  let message;
-  if (cameraLoading) message="Loading camera and hand model…";
-  else if (demo) message="Move your mouse to try the ink hand.";
-  else if (tracking) {
-    if (hands.length && millis()-lastDetection<650) message="Hand detected. Move slowly and pause near the ink hand.";
-    else message="Camera is on. Hold one hand in view with fingers visible.";
-  } else return;
-  document.getElementById("status").textContent=message;
-}
-
-class Opening {
-  constructor(images) {
-    this.images = images;
-    // Milliseconds per drawing. The final hand remains on screen.
-    this.durations = [450, 350, 350, 500, 400, 230, 230, 300, 450];
-    this.startedAt = 0;
-    this.started = false;
-    this.finished = false;
-  }
-
-  start() {
-    this.startedAt = millis();
-    this.started = true;
-    this.finished = false;
-    document.getElementById("status").textContent = "An ink hand is taking shape.";
-  }
-
-  display() {
-    if (!this.started) {
-      image(this.images[0], 0, 0, width, height);
-      return;
-    }
-    let elapsed = millis() - this.startedAt;
-    let boundary = 0;
-    let index = this.images.length - 1;
-    for (let i = 0; i < this.durations.length; i++) {
-      boundary += this.durations[i];
-      if (elapsed < boundary) {
-        index = i;
-        break;
-      }
-    }
-    image(this.images[index], 0, 0, width, height);
-
-    // Whole-frame dissolve from ink wash to fist, including the paper.
-    let transitionStart = 1650;
-    if (elapsed >= transitionStart && elapsed < transitionStart + 400) {
-      image(this.images[3], 0, 0, width, height);
-      let opacity = map(elapsed, transitionStart, transitionStart + 400, 0, 255);
-      tint(255, opacity);
-      image(this.images[4], 0, 0, width, height);
-      noTint();
-    }
-    if (elapsed >= boundary && !this.finished) {
-      this.finished = true;
-      document.getElementById("status").textContent =
-        tracking ? "Raise one hand. Green points show its position." :
-          "The hand is waiting. Enable hand tracking to try the camera.";
-    }
-  }
-}
+// ---------- Camera ----------
 
 async function startCamera() {
-  if (tracking || cameraLoading) return;
-  cameraLoading=true;
-  document.getElementById("camera").disabled=true;
-  document.getElementById("status").textContent="Loading hand tracking…";
+  if (cameraOn || cameraLoading) {
+    return;
+  }
+
+  cameraLoading = true;
+
+  document.getElementById("camera").disabled = true;
+
+  setStatus("Loading the hand model…");
+
   try {
-    if (typeof ml5 === "undefined") throw new Error("ml5 library did not load. Check your connection.");
-    if (!handPose) handPose=await ml5.handPose();
-    // Use the instructor's p5 capture approach and wait until video metadata is ready.
-    video=await new Promise(function(resolve,reject) {
-      let capture=createCapture({video:{width:640,height:480},audio:false},function() {
-        resolve(capture);
-      });
-      capture.size(640,480);
-      capture.hide();
-      capture.elt.addEventListener("error",function(){reject(new Error("Camera video failed."));},{once:true});
-      capture.elt.addEventListener("loadeddata",function(){resolve(capture);},{once:true});
-      // The timeout also covers a permission prompt left unanswered.
-      setTimeout(function(){
-        if (!capture.elt.srcObject) {
-          capture.remove();
-          reject(new Error("Camera access was not granted. Allow the camera, then retry."));
-        }
-      },20000);
-      video=capture;
-    });
-    handPose.detectStart(video,gotHands);
-    tracking=true;
-    demo=false;
-    document.getElementById("demo").textContent="Try with mouse";
-    document.getElementById("camera").hidden=true;
-    document.getElementById("stop-camera").hidden=false;
-    if (!opening.started) {
-      opening.start();
-      document.getElementById("begin").hidden=true;
-      document.getElementById("replay").disabled=false;
+    if (typeof ml5 === "undefined") {
+      throw new Error(
+        "ml5 did not load. Check your internet connection."
+      );
     }
-  } catch(error) {
+
+    if (!handPose) {
+      handPose = await ml5.handPose();
+    }
+
+    setStatus("Allow camera access in your browser.");
+
+    // Obtain permission with explicit error handling.
+    let stream =
+      await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 640 },
+          height: { ideal: 480 }
+        },
+        audio: false
+      });
+
+    video = createVideo([]);
+
+    video.hide();
+    video.size(640, 480);
+
+    video.elt.muted = true;
+    video.elt.playsInline = true;
+    video.elt.srcObject = stream;
+
+    await video.elt.play();
+
+    cameraOn = true;
+    handHistory = [];
+    hands = [];
+
+    handPose.detectStart(video, gotHands);
+
+    document.getElementById("camera").hidden = true;
+    document.getElementById("stop").hidden = false;
+
+    if (scene === "waiting") {
+      startOpening();
+    }
+
+    setStatus("Camera ready. Raise one hand.");
+  } catch (error) {
     stopCamera();
-    document.getElementById("status").textContent=error.message+" Use Live Server and check browser camera permission.";
+
+    setStatus(
+      "Camera could not start. " +
+      error.message +
+      " Open the page with Live Server and check camera permission."
+    );
+
     console.error(error);
   } finally {
-    cameraLoading=false;
-    document.getElementById("camera").disabled=false;
+    cameraLoading = false;
+
+    document.getElementById("camera").disabled = false;
   }
 }
 
+// ---------- Detection callback ----------
+
 function gotHands(results) {
-  hands=results;
-  lastDetection=millis();
+  hands = results;
+  lastDetection = millis();
+
+  if (results.length === 0) {
+    handHistory = [];
+    return;
+  }
+
+  let points = results[0].keypoints;
+
+  let savedPoints = [];
+
+  for (let i = 0; i < points.length; i++) {
+    savedPoints.push({
+      x: width - points[i].x * width / video.width,
+      y: points[i].y * height / video.height
+    });
+  }
+
+  handHistory.push({
+    time: millis(),
+    points: savedPoints
+  });
+
+  while (
+    handHistory.length > 1 &&
+    handHistory[0].time < millis() - 2000
+  ) {
+    handHistory.shift();
+  }
 }
 
+// ---------- Camera preview ----------
+
+function drawCameraPreview() {
+  let checkbox = document.getElementById("preview");
+
+  if (
+    !checkbox.checked ||
+    !cameraOn ||
+    !video
+  ) {
+    return;
+  }
+
+  push();
+
+  translate(width, 0);
+  scale(-1, 1);
+
+  image(video, 0, 0, 192, 144);
+
+  pop();
+}
+
+// ---------- Stop camera ----------
+
 function stopCamera() {
-  if (handPose && tracking) handPose.detectStop();
-  tracking = false;
+  if (handPose && cameraOn) {
+    handPose.detectStop();
+  }
+
+  cameraOn = false;
+
   hands = [];
+  handHistory = [];
+
+  if (playerHand) {
+    playerHand.reset();
+  }
+
+  if (companionHand) {
+    companionHand.reset();
+  }
+
   if (video) {
     let stream = video.elt.srcObject;
+
     if (stream) {
       let tracks = stream.getTracks();
-      for (let i = 0; i < tracks.length; i++) tracks[i].stop();
+
+      for (let i = 0; i < tracks.length; i++) {
+        tracks[i].stop();
+      }
     }
+
     video.remove();
     video = undefined;
   }
+
   document.getElementById("camera").hidden = false;
   document.getElementById("camera").disabled = false;
-  document.getElementById("stop-camera").hidden = true;
-  document.getElementById("status").textContent = "Camera stopped. The opening can still be replayed.";
+  document.getElementById("stop").hidden = true;
+
+  setStatus("Camera stopped.");
 }
